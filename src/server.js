@@ -11,8 +11,13 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const WEBHOOK_SECRET =
-  process.env.WEBHOOK_SECRET || crypto.createHash('sha256').update(`webhook:${BOT_TOKEN}`).digest('hex').slice(0, 32);
+// Telegram принимает в secret_token только A-Z a-z 0-9 _ -, а Render генерирует base64 (+/=).
+// Поэтому любой исходный секрет прогоняем через sha256 → hex
+const WEBHOOK_SECRET = crypto
+  .createHash('sha256')
+  .update(`webhook:${process.env.WEBHOOK_SECRET || BOT_TOKEN}`)
+  .digest('hex')
+  .slice(0, 32);
 const SESSION_TOKEN = crypto.createHash('sha256').update(`crm:${ADMIN_PASSWORD}:${WEBHOOK_SECRET}`).digest('hex');
 
 let botUsername = null;

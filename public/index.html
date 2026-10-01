@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мини-CRM заявок</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563eb'/><path d='M9 11h14M9 16h14M9 21h9' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>">
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --text: #111827; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb; --accent-text: #fff; --hover: #f3f4f6; --danger: #dc2626; --flash: #fef9c3;
+    --shadow: 0 10px 30px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --panel: #171a21; --text: #e5e7eb; --muted: #9ca3af; --line: #2a2f3a;
+      --accent: #3b82f6; --hover: #1f2430; --danger: #f87171; --flash: #3a3410; --shadow: 0 10px 30px rgba(0,0,0,.5); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 12px; }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.danger { color: var(--danger); }
+  button.link { border: 0; background: none; padding: 0; color: var(--muted); }
+  input, select, textarea { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 10px; width: 100%; }
+  textarea { resize: vertical; min-height: 70px; }
+  [hidden] { display: none !important; }
+
+  header { display: flex; gap: 12px; align-items: center; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; }
+  header .bot { color: var(--muted); text-decoration: none; }
+  header .bot:hover { color: var(--accent); }
+  header .search { flex: 1; min-width: 160px; max-width: 360px; margin-left: auto; }
+
+  .layout { display: grid; grid-template-columns: 220px 1fr; gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; }
+  .layout > * { min-width: 0; }
+  aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  aside section + section { margin-top: 20px; }
+  .filter { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; }
+  .filter.active { background: var(--panel); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+  .filter .count { color: var(--muted); font-size: 12px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
+
+  .list { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .list-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); color: var(--muted); gap: 8px; flex-wrap: wrap; }
+  .row { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover { background: var(--hover); }
+  .row.flash { animation: flash 2.5s ease-out; }
+  @keyframes flash { from { background: var(--flash); } to { background: transparent; } }
+  .row .name { font-weight: 600; }
+  .row .contact { color: var(--muted); margin-left: 8px; font-weight: 400; }
+  .row .req { grid-column: 1 / -1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta { text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .row .tags { grid-column: 1 / -1; }
+  .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border-radius: 999px; margin: 2px 4px 2px 0; border: 1px solid; background: transparent; cursor: pointer; }
+  .chip .x { border: 0; background: none; padding: 0 0 0 2px; font-size: 14px; line-height: 1; color: inherit; opacity: .7; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 6px; background: var(--hover); color: var(--muted); }
+  .status-new { color: #2563eb; } .status-in_work { color: #d97706; } .status-done { color: #16a34a; } .status-lost { color: var(--muted); }
+
+  .drawer { position: fixed; inset: 0 0 0 auto; width: min(480px, 100%); background: var(--panel); box-shadow: var(--shadow); z-index: 20; display: flex; flex-direction: column; }
+  .drawer-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .drawer-body { padding: 18px; overflow-y: auto; flex: 1; display: grid; gap: 14px; align-content: start; }
+  label.field { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+  label.field > :not(span) { color: var(--text); font-size: 14px; }
+  .tag-add { display: flex; gap: 8px; margin-top: 6px; }
+  .messages { display: grid; gap: 8px; }
+  .msg { padding: 8px 12px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; word-break: break-word; }
+  .msg.in { background: var(--hover); justify-self: start; }
+  .msg.out { background: var(--accent); color: var(--accent-text); justify-self: end; }
+  .msg time { display: block; font-size: 11px; opacity: .7; margin-top: 2px; }
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 15; }
+
+  .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 32px)); background: var(--panel); border-radius: 14px; box-shadow: var(--shadow); z-index: 30; padding: 20px; display: grid; gap: 12px; }
+  .modal h2 { margin: 0; font-size: 17px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .error { color: var(--danger); font-size: 13px; }
+
+  .login { max-width: 320px; margin: 18vh auto 0; padding: 0 16px; display: grid; gap: 12px; text-align: center; }
+
+  @media (max-width: 760px) {
+    header { padding: 10px 16px; }
+    header .search { order: 5; max-width: none; flex-basis: 100%; margin: 0; }
+    .layout { grid-template-columns: 1fr; padding: 12px 16px; gap: 12px; }
+    aside { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+    aside section { display: contents; }
+    aside h3 { display: none; }
+    .filter { width: auto; white-space: nowrap; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; }
+    .filter.active { box-shadow: none; border-color: var(--accent); }
+    .row { grid-template-columns: 1fr; }
+    .row .meta { text-align: left; order: -1; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login" class="login" hidden>
+  <h1>Мини-CRM заявок</h1>
+  <form id="login-form" style="display:grid;gap:10px">
+    <input type="password" name="password" placeholder="Пароль" autofocus>
+    <button class="primary">Войти</button>
+    <div class="error" id="login-error"></div>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>Заявки</h1>
+    <a id="bot-link" class="bot" target="_blank" rel="noopener" hidden></a>
+    <input id="search" class="search" type="search" placeholder="Поиск по имени, контакту, запросу">
+    <button class="primary" id="new-lead-btn">+ Лид</button>
+    <button class="link" id="logout-btn" title="Выйти">Выйти</button>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <section id="source-filters"><h3>Источник</h3></section>
+      <section id="tag-filters"><h3>Теги</h3></section>
+    </aside>
+    <main>
+      <div class="list">
+        <div class="list-head"><span id="list-title">Все лиды</span><span id="list-count"></span></div>
+        <div id="rows"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="backdrop" class="backdrop" hidden></div>
+<div id="drawer" class="drawer" hidden></div>
+
+<form id="new-lead" class="modal" hidden>
+  <h2>Новый лид</h2>
+  <label class="field"><span>Имя</span><input name="name" autocomplete="off"></label>
+  <label class="field"><span>Контакт</span><input name="contact" placeholder="Телефон, e-mail, @ник" autocomplete="off"></label>
+  <label class="field"><span>Запрос</span><textarea name="request"></textarea></label>
+  <label class="field"><span>Теги через запятую</span><input name="tags" list="tag-options" placeholder="например: сайт, горячий" autocomplete="off"></label>
+  <div class="error" id="new-lead-error"></div>
+  <div class="actions"><button type="button" id="new-lead-cancel">Отмена</button><button class="primary">Создать</button></div>
+</form>
+<datalist id="tag-options"></datalist>
+
+<script>
+const SOURCES = { bot: 'Telegram-бот', tg_personal: 'Личный Telegram', manual: 'Вручную' };
+const STATUSES = { new: 'Новый', in_work: 'В работе', done: 'Сделка', lost: 'Отказ' };
+
+const state = { tag: '', source: '', q: '', leads: [], tags: [], openId: null, seen: null };
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const fmt = (d) => new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: opts.body ? { 'content-type': 'application/json' } : {},
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (res.status === 401 && path !== '/login') { showLogin(); throw new Error('auth'); }
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Ошибка ' + res.status);
+  return data;
+}
+
+// ---------- Вход ----------
+function showLogin() { $('#app').hidden = true; $('#login').hidden = false; }
+$('#login-form').onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api('/login', { method: 'POST', body: { password: e.target.password.value } });
+    boot();
+  } catch (err) { $('#login-error').textContent = err.message; }
+};
+$('#logout-btn').onclick = async () => { await api('/logout', { method: 'POST' }); location.reload(); };
+
+// ---------- Данные ----------
+async function loadAll() {
+  const params = new URLSearchParams();
+  if (state.tag) params.set('tag', state.tag);
+  if (state.source) params.set('source', state.source);
+  if (state.q) params.set('q', state.q);
+  const [leads, tags] = await Promise.all([api('/leads?' + params), api('/tags')]);
+  // Подсвечиваем лиды, которые появились с прошлого опроса (пришли из Telegram, пока CRM открыта)
+  const fresh = state.seen ? new Set(leads.filter((l) => !state.seen.has(l.id)).map((l) => l.id)) : new Set();
+  state.seen = new Set([...(state.seen ?? []), ...leads.map((l) => l.id)]);
+  state.leads = leads; state.tags = tags;
+  renderFilters(); renderRows(fresh);
+}
+
+function tagChip(t, removable) {
+  return `<span class="chip" style="color:${t.color};border-color:${t.color}" data-tag="${esc(t.name)}">${esc(t.name)}${
+    removable ? `<button class="x" data-remove-tag="${t.id}" title="Убрать тег">×</button>` : ''}</span>`;
+}
+
+function renderFilters() {
+  const src = [['', 'Все'], ...Object.entries(SOURCES)];
+  $('#source-filters').innerHTML = '<h3>Источник</h3>' + src.map(([k, v]) =>
+    `<button class="filter ${state.source === k ? 'active' : ''}" data-source="${k}">${v}</button>`).join('');
+  $('#tag-filters').innerHTML = '<h3>Теги</h3>' +
+    `<button class="filter ${!state.tag ? 'active' : ''}" data-filter-tag="">Все теги</button>` +
+    state.tags.map((t) => `<button class="filter ${state.tag === t.name ? 'active' : ''}" data-filter-tag="${esc(t.name)}">
+      <span><span class="dot" style="background:${t.color}"></span>${esc(t.name)}</span><span class="count">${t.lead_count}</span></button>`).join('');
+  $('#tag-options').innerHTML = state.tags.map((t) => `<option value="${esc(t.name)}">`).join('');
+}
+
+function renderRows(fresh = new Set()) {
+  const parts = [state.source && SOURCES[state.source], state.tag && `#${state.tag}`, state.q && `«${state.q}»`].filter(Boolean);
+  $('#list-title').textContent = parts.length ? parts.join(' · ') : 'Все лиды';
+  $('#list-count').textContent = `${state.leads.length} шт.`;
+  $('#rows').innerHTML = state.leads.length ? state.leads.map((l) => `
+    <div class="row ${fresh.has(l.id) ? 'flash' : ''}" data-id="${l.id}">
+      <div><span class="name">${esc(l.name || 'Без имени')}</span><span class="contact">${esc(l.contact)}</span></div>
+      <div class="meta"><span class="status-${l.status}">${STATUSES[l.status]}</span> · ${fmt(l.created_at)}</div>
+      ${l.request ? `<div class="req">${esc(l.request)}</div>` : ''}
+      <div class="tags"><span class="badge">${SOURCES[l.source]}</span>
+        ${l.message_count ? `<span class="badge">💬 ${l.message_count}</span>` : ''}
+        ${l.tags.map((t) => tagChip(t)).join('')}</div>
+    </div>`).join('')
+    : `<div class="empty">${parts.length ? 'Нет лидов по этому фильтру' : 'Лидов пока нет. Напишите боту или добавьте лида вручную.'}</div>`;
+}
+
+// ---------- Фильтры ----------
+document.addEventListener('click', (e) => {
+  const src = e.target.closest('[data-source]');
+  if (src) { state.source = src.dataset.source; loadAll(); return; }
+  const ft = e.target.closest('[data-filter-tag]');
+  if (ft) { state.tag = ft.dataset.filterTag; loadAll(); return; }
+  // Клик по тегу в строке списка — фильтр по этому тегу
+  const chip = e.target.closest('#rows .chip');
+  if (chip) { e.stopPropagation(); state.tag = chip.dataset.tag; loadAll(); return; }
+  const row = e.target.closest('.row');
+  if (row) openLead(Number(row.dataset.id));
+});
+let searchTimer;
+$('#search').oninput = (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.q = e.target.value.trim(); loadAll(); }, 250); };
+
+// ---------- Карточка лида ----------
+async function openLead(id) {
+  state.openId = id;
+  const lead = await api('/leads/' + id);
+  $('#drawer').innerHTML = `
+    <div class="drawer-head"><strong>Лид №${lead.id}</strong><button class="link" id="close-drawer">✕</button></div>
+    <div class="drawer-body">
+      <div><span class="badge">${SOURCES[lead.source]}</span> <span style="color:var(--muted);font-size:12px">создан ${fmt(lead.created_at)}</span>
+        ${lead.tg_username ? ` · <a href="https://t.me/${esc(lead.tg_username)}" target="_blank" rel="noopener">написать в Telegram</a>` : ''}</div>
+      <label class="field"><span>Статус</span><select data-field="status">${Object.entries(STATUSES).map(([k, v]) =>
+        `<option value="${k}" ${lead.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="field"><span>Имя</span><input data-field="name" value="${esc(lead.name)}"></label>
+      <label class="field"><span>Контакт</span><input data-field="contact" value="${esc(lead.contact)}"></label>
+      <label class="field"><span>Запрос</span><textarea data-field="request">${esc(lead.request)}</textarea></label>
+      <div class="field"><span style="color:var(--muted);font-size:12px">Теги</span>
+        <div id="drawer-tags"></div>
+        <form class="tag-add" id="tag-add"><input name="tag" list="tag-options" placeholder="Добавить тег" autocomplete="off"><button>+</button></form>
+      </div>
+      <div id="drawer-messages"></div>
+      <div><button class="danger" id="delete-lead">Удалить лида</button></div>
+    </div>`;
+  renderDrawerLive(lead);
+  $('#drawer').hidden = $('#backdrop').hidden = false;
+
+  $('#close-drawer').onclick = closeLead;
+  $('#drawer').querySelectorAll('[data-field]').forEach((el) => {
+    el.onchange = async () => { await api('/leads/' + id, { method: 'PATCH', body: { [el.dataset.field]: el.value } }); loadAll(); };
+  });
+  $('#tag-add').onsubmit = async (e) => {
+    e.preventDefault();
+    const name = e.target.tag.value.trim();
+    if (!name) return;
+    renderDrawerLive(await api(`/leads/${id}/tags`, { method: 'POST', body: { name } }));
+    e.target.tag.value = '';
+    loadAll();
+  };
+  $('#delete-lead').onclick = async () => {
+    if (!confirm('Удалить лида безвозвратно?')) return;
+    await api('/leads/' + id, { method: 'DELETE' });
+    closeLead(); loadAll();
+  };
+}
+
+// Части карточки, которые меняются извне (теги, переписка) — перерисовываем, не трогая поля ввода
+function renderDrawerLive(lead) {
+  $('#drawer-tags').innerHTML = lead.tags.map((t) => tagChip(t, true)).join('') || '<span style="color:var(--muted)">нет тегов</span>';
+  $('#drawer-tags').querySelectorAll('[data-remove-tag]').forEach((b) => {
+    b.onclick = async () => { renderDrawerLive(await api(`/leads/${lead.id}/tags/${b.dataset.removeTag}`, { method: 'DELETE' })); loadAll(); };
+  });
+  $('#drawer-messages').innerHTML = lead.messages.length ? `
+    <div class="field"><span style="color:var(--muted);font-size:12px">Переписка</span>
+    <div class="messages">${lead.messages.map((m) => `<div class="msg ${m.direction}">${esc(m.text)}<time>${fmt(m.created_at)}</time></div>`).join('')}</div></div>` : '';
+}
+
+function closeLead() { state.openId = null; $('#drawer').hidden = $('#backdrop').hidden = true; }
+$('#backdrop').onclick = () => { closeLead(); closeNew(); };
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeLead(); closeNew(); } });
+
+// ---------- Новый лид ----------
+function closeNew() { $('#new-lead').hidden = true; if (!state.openId) $('#backdrop').hidden = true; }
+$('#new-lead-btn').onclick = () => {
+  $('#new-lead').reset(); $('#new-lead-error').textContent = '';
+  $('#new-lead').hidden = $('#backdrop').hidden = false;
+  $('#new-lead').elements.name.focus();
+};
+$('#new-lead-cancel').onclick = closeNew;
+$('#new-lead').onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    const lead = await api('/leads', { method: 'POST', body: {
+      name: f.elements.name.value, contact: f.elements.contact.value, request: f.elements.request.value,
+      tags: f.elements.tags.value.split(',').map((s) => s.trim()).filter(Boolean),
+    } });
+    closeNew(); await loadAll(); openLead(lead.id);
+  } catch (err) { $('#new-lead-error').textContent = err.message; }
+};
+
+// ---------- Старт ----------
+async function boot() {
+  const me = await api('/me');
+  $('#login').hidden = true; $('#app').hidden = false;
+  if (me.bot) Object.assign($('#bot-link'), { href: `https://t.me/${me.bot}`, textContent: `@${me.bot}`, hidden: false });
+  await loadAll();
+}
+
+setInterval(async () => {
+  if ($('#app').hidden || document.hidden) return;
+  await loadAll().catch(() => {});
+  if (state.openId) api('/leads/' + state.openId).then(renderDrawerLive).catch(() => {});
+}, 5000);
+
+boot().catch(() => {});
+</script>
+</body>
+</html>

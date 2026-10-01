@@ -1,0 +1,20 @@
+{
+  "name": "mini-crm",
+  "version": "1.0.0",
+  "description": "Мини-CRM для заявок агентства: Telegram-бот, личный Telegram (Business), ручные лиды, теги",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "express": "^5.2.1",
+    "pg": "^8.23.1"
+  }
+}

@@ -21,7 +21,10 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public')));
 
-app.get('/healthz', (_req, res) => res.send('ok'));
+app.get('/healthz', (_req, res) => {
+  ensureWebhook().catch(() => {});
+  res.send('ok');
+});
 
 // ---------- Telegram webhook ----------
 
@@ -131,6 +134,20 @@ app.use((err, _req, res, _next) => {
 
 // ---------- Запуск ----------
 
+// Webhook проверяем не только при старте: если его кто-то снял (другой экземпляр, getUpdates),
+// бот замолчит, а спящий free-инстанс сам не проснётся. Render дёргает /healthz — заодно чиним.
+let webhookCheckedAt = 0;
+async function ensureWebhook(force = false) {
+  if (!BOT_TOKEN || !PUBLIC_URL || process.env.POLLING === '1') return;
+  if (!force && Date.now() - webhookCheckedAt < 10 * 60 * 1000) return;
+  webhookCheckedAt = Date.now();
+  const url = `${PUBLIC_URL}/tg/webhook/${WEBHOOK_SECRET}`;
+  const info = await tg('getWebhookInfo');
+  if (info?.url === url) return;
+  const ok = await tg('setWebhook', { url, secret_token: WEBHOOK_SECRET, allowed_updates: ALLOWED_UPDATES });
+  console.log(ok ? `Бот @${botUsername}: webhook установлен` : 'Не удалось установить webhook');
+}
+
 async function startPolling() {
   await tg('deleteWebhook');
   let offset = 0;
@@ -153,12 +170,7 @@ if (BOT_TOKEN) {
   if (process.env.POLLING === '1') {
     startPolling();
   } else if (PUBLIC_URL) {
-    const ok = await tg('setWebhook', {
-      url: `${PUBLIC_URL}/tg/webhook/${WEBHOOK_SECRET}`,
-      secret_token: WEBHOOK_SECRET,
-      allowed_updates: ALLOWED_UPDATES,
-    });
-    console.log(ok ? `Бот @${botUsername}: webhook установлен` : 'Не удалось установить webhook');
+    await ensureWebhook(true);
   } else {
     console.warn('Нет PUBLIC_URL и POLLING!=1 — бот не получает апдейты');
   }
